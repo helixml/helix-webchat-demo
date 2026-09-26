@@ -5,6 +5,9 @@ create sessions, chat with file attachments, read per-session activity, and keep
 instances alive. All shapes below were verified against a live Helix API (`helixml/helix`,
 `POST /api/v1/...`).
 
+For the separate mock portal credential handoff, see [portal-connection.md](portal-connection.md).
+That flow keeps password and OTP submissions outside these chat endpoints.
+
 ## Base & auth
 
 ```
