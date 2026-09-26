@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Badge } from "@/components/ui/badge";
 import {
   IconChats, IconCalls, IconStatus, IconChannels, IconCommunities, IconFilter,
-  IconPlus, IconSearch, IconMore, IconSticker, IconMic, IconVideo, IconLock,
+  IconPlus, IconSearch, IconMore, IconSticker, IconMic, IconVideo, IconLock, IconSend,
   IconArchive, IconDelivered, IconRead, IconTailIn, IconChevronDown, IconClose, IconChevronDownWide,
 } from "@/components/wa-icons";
 import { CONTACTS, FAKE_HISTORIES, initials, type FakeMessage } from "@/lib/contacts";
@@ -497,11 +497,15 @@ export function ChatApp() {
             </div>
           )}
           <input ref={fileInputRef} type="file" multiple className="hidden" accept="image/*,application/pdf,.txt,.csv,.xlsx,.docx" onChange={(e) => { if (e.target.files) setPickedFiles((p) => [...p, ...Array.from(e.target.files!)]); if (fileInputRef.current) fileInputRef.current.value = ""; }} />
-          <div className="flex h-[52px] items-center gap-1 rounded-[26px] px-1.5" style={{ background: C.bubbleIn, padding: 5, boxShadow: "rgba(0,0,0,0.12) 0px 1px 6px 0px" }}>
-            <button className="grid h-10 w-10 shrink-0 place-items-center rounded-full" style={{ color: C.textMuted }} title="Attach" disabled={!isLive} onClick={() => fileInputRef.current?.click()}>
+          <form
+            className="flex h-[52px] items-center gap-1 rounded-[26px] px-1.5"
+            style={{ background: C.bubbleIn, padding: 5, boxShadow: "rgba(0,0,0,0.12) 0px 1px 6px 0px" }}
+            onSubmit={(e) => { e.preventDefault(); send(); }}
+          >
+            <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-full" style={{ color: C.textMuted }} title="Attach" disabled={!isLive} onClick={() => fileInputRef.current?.click()}>
               <IconPlus size={24} />
             </button>
-            <button className="grid h-10 w-10 shrink-0 place-items-center rounded-full" style={{ color: C.textMuted }} title="Emojis, GIFs, Stickers" disabled={!isLive}>
+            <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-full" style={{ color: C.textMuted }} title="Emojis, GIFs, Stickers" disabled={!isLive}>
               <IconSticker size={24} />
             </button>
             <input
@@ -509,14 +513,20 @@ export function ChatApp() {
               placeholder="Type a message"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              enterKeyHint="send"
               style={{ color: C.textBright }}
               disabled={!isLive}
             />
-            <button className="grid h-10 w-10 shrink-0 place-items-center rounded-full" style={{ color: C.textMuted }} title="Send" onClick={send} disabled={busy || !isLive}>
-              {busy ? <span className="text-sm">···</span> : <IconMic size={24} />}
+            <button
+              type="submit"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full"
+              title="Send"
+              disabled={busy || !isLive}
+              style={{ color: draft.trim() || pickedFiles.length ? C.green : C.textMuted }}
+            >
+              {busy ? <span className="text-sm">···</span> : draft.trim() || pickedFiles.length ? <IconSend size={24} /> : <IconMic size={24} />}
             </button>
-          </div>
+          </form>
         </footer>
 
         <ActivitySheet open={showActivity} onOpenChange={setShowActivity} sessionId={sessionId} />
