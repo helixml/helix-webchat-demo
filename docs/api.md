@@ -6,6 +6,7 @@ instances alive. All shapes below were verified against a live Helix API (`helix
 `POST /api/v1/...`).
 
 For the separate mock portal credential handoff, see [portal-connection.md](portal-connection.md).
+For dynamic username, password, API key, or OTP collection, see [secret-intake.md](secret-intake.md).
 That flow keeps password and OTP submissions outside these chat endpoints.
 
 ## Base & auth

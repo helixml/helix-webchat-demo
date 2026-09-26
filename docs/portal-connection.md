@@ -1,5 +1,7 @@
 # Portal connection handoff (Helix mock API)
 
+For the generic Connect API and MCP tools, see [secret-intake.md](secret-intake.md).
+
 Helix can host a separate credential form for a portal connection. The webchat
 should render a **Connect portal** action from its own backend. Password and
 OTP are entered on the Helix `/connect` page and never pass through this
