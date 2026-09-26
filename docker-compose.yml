@@ -1,0 +1,9 @@
+services:
+  webchat:
+    build: .
+    container_name: helix-webchat
+    ports:
+      - "3111:3111"
+    env_file:
+      - .env.local
+    restart: unless-stopped

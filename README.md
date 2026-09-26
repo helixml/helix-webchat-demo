@@ -55,6 +55,15 @@ helix org bots appkey b-support-demo create demo-backend   # → optional app-sc
 
 ### 2. Run the app
 
+**Docker (recommended for demos):**
+
+```bash
+cp .env.example .env.local                   # fill in HELIX_URL, HELIX_API_KEY, HELIX_BOT_APP_ID
+docker compose up -d --build                 # http://localhost:3111
+```
+
+**Or plain Node:**
+
 ```bash
 npm install
 cp .env.example .env.local                   # fill in HELIX_URL, HELIX_API_KEY, HELIX_BOT_APP_ID
