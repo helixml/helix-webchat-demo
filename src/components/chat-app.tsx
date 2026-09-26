@@ -39,6 +39,7 @@ const C = {
   border: "rgba(255,255,255,0.1)",
   metaTime: "rgba(233,237,239,0.6)",
 };
+const SESSION_KEY = "helix-webchat:session:support";
 const FONT = 'var(--font-roboto), Roboto, "Helvetica Neue", Helvetica, sans-serif';
 
 type ActivityTurn = { id: string; created: string; state: string; prompt: string };
@@ -208,6 +209,24 @@ export function ChatApp() {
   );
   const chat = useMemo(() => new AiChat({ transport }), [transport]);
   const { messages, sendMessage, status } = useChat({ chat });
+  const [showMenu, setShowMenu] = useState(false);
+
+  // keep the Helix session across page reloads (WhatsApp keeps the chat too)
+  useEffect(() => {
+    const saved = localStorage.getItem(SESSION_KEY);
+    if (saved) setSessionIds((s) => (s["support"] ? s : { ...s, ["support"]: saved }));
+  }, []);
+  useEffect(() => {
+    if (sessionId) localStorage.setItem(SESSION_KEY, sessionId);
+  }, [sessionId]);
+
+  const resetSession = () => {
+    localStorage.removeItem(SESSION_KEY);
+    setSessionIds({});
+    seenTimes.current.clear();
+    chat.messages = [];
+    setShowMenu(false);
+  };
 
   useEffect(() => {
     const last = messages[messages.length - 1];
@@ -361,7 +380,7 @@ export function ChatApp() {
                   className="grid h-[49px] w-[49px] shrink-0 place-items-center rounded-full text-sm font-medium"
                   style={{ background: c.color, color: "#fff" }}
                 >
-                  {c.live ? "HS" : initials(c.name)}
+                  {initials(c.name)}
                 </span>
                 <span className="min-w-0 flex-1 border-b pb-3" style={{ borderColor: "rgba(134,150,160,0.15)" }}>
                   <span className="flex items-center justify-between">
@@ -394,7 +413,7 @@ export function ChatApp() {
         <header className="z-10 flex h-16 items-center justify-between px-4" style={{ background: C.headerBg }}>
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-medium" style={{ background: active.color, color: "#fff" }}>
-              {isLive ? "HS" : initials(active.name)}
+              {initials(active.name)}
             </span>
             <div>
               <div className="text-[16px] leading-5" style={{ color: C.textPrimary }}>{active.name}</div>
@@ -409,7 +428,21 @@ export function ChatApp() {
             )}
             <button className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#365063]/60" title="Video call"><IconVideo size={22} /></button>
             <button className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#365063]/60" title="Search"><IconSearch size={22} /></button>
-            <button className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#365063]/60" title="Menu"><IconMore size={22} /></button>
+            <div className="relative">
+              <button className="grid h-10 w-10 place-items-center rounded-full hover:bg-[#365063]/60" title="Menu" onClick={() => setShowMenu((m) => !m)}>
+                <IconMore size={22} />
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 top-11 z-20 w-64 overflow-hidden rounded-md py-1 shadow-xl" style={{ background: "#233138", boxShadow: "0 2px 10px rgba(0,0,0,.4)" }}>
+                  <button className="block w-full px-4 py-2.5 text-left text-[14px] hover:bg-[#182229]" style={{ color: "#d1d7db" }} onClick={() => { setShowMenu(false); setShowActivity(true); }}>
+                    Session activity
+                  </button>
+                  <button className="block w-full px-4 py-2.5 text-left text-[14px] hover:bg-[#182229]" style={{ color: "#d1d7db" }} onClick={resetSession}>
+                    Reset session (new bot + sandbox)
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -457,9 +490,19 @@ export function ChatApp() {
                   This demo streams one Helix bot session per conversation through your backend.
                 </div>
               </div>
-              {messages.map((m) => (
-                <Bubble key={m.id} message={m} seenTimes={seenTimes.current} />
-              ))}
+              {messages.map((m) => {
+                const notice = m.parts.find((p) => p.type === "data-notice") as { data?: { text?: string } } | undefined;
+                return (
+                  <div key={m.id}>
+                    {notice?.data?.text && (
+                      <div className="mx-auto mb-2 w-fit rounded-lg px-3 py-1.5 text-center text-[12.5px]" style={{ background: "#182229", color: C.textMuted }}>
+                        {notice.data.text}
+                      </div>
+                    )}
+                    <Bubble message={m} seenTimes={seenTimes.current} />
+                  </div>
+                );
+              })}
               {busy && (
                 <div className="flex justify-start px-[3%]">
                   <div className="relative py-1.5" style={{ background: C.bubbleIn, borderRadius: "7.5px", borderTopLeftRadius: 0 }}>

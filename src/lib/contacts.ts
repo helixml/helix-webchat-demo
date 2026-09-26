@@ -21,7 +21,7 @@ export type FakeMessage = {
 export const CONTACTS: Contact[] = [
   {
     id: "support",
-    name: "Helix Support",
+    name: "Meydan Free Zone",
     color: "#00a884",
     lastSeen: "online",
     live: true,
