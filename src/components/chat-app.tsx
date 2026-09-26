@@ -40,6 +40,7 @@ const C = {
   metaTime: "rgba(233,237,239,0.6)",
 };
 const SESSION_KEY = "helix-webchat:session:support";
+const MSGS_KEY = "helix-webchat:messages";
 const FONT = 'var(--font-roboto), Roboto, "Helvetica Neue", Helvetica, sans-serif';
 
 type ActivityTurn = { id: string; created: string; state: string; prompt: string };
@@ -208,23 +209,49 @@ export function ChatApp() {
     [],
   );
   const chat = useMemo(() => new AiChat({ transport }), [transport]);
-  const { messages, sendMessage, status } = useChat({ chat });
+  const { messages, sendMessage, status, error } = useChat({ chat });
   const [showMenu, setShowMenu] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
 
-  // keep the Helix session across page reloads (WhatsApp keeps the chat too)
+  // keep the Helix session across page reloads (WhatsApp keeps the chat too).
+  // ?s=<session id> in the URL wins — makes any conversation linkable/debuggable.
   useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("s");
     const saved = localStorage.getItem(SESSION_KEY);
-    if (saved) setSessionIds((s) => (s["support"] ? s : { ...s, ["support"]: saved }));
+    const sid = fromUrl || saved;
+    if (sid) setSessionIds((s) => (s["support"] ? s : { ...s, ["support"]: sid }));
+    if (sid) {
+      // restore the chat transcript for this session (UI history is client-side)
+      try {
+        const savedMsgs = JSON.parse(localStorage.getItem(`${MSGS_KEY}:${sid}`) ?? "[]") as UIMessage[];
+        if (Array.isArray(savedMsgs) && savedMsgs.length) chat.messages = savedMsgs;
+      } catch { /* ignore corrupt cache */ }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
-    if (sessionId) localStorage.setItem(SESSION_KEY, sessionId);
+    if (sessionId) {
+      localStorage.setItem(SESSION_KEY, sessionId);
+      if (new URLSearchParams(window.location.search).get("s") !== sessionId) {
+        window.history.replaceState(null, "", `?s=${sessionId}`);
+      }
+    }
   }, [sessionId]);
+  useEffect(() => {
+    if (sessionId && messages.length) {
+      try {
+        localStorage.setItem(`${MSGS_KEY}:${sessionId}`, JSON.stringify(messages.slice(-60)));
+      } catch { /* quota — ignore */ }
+    }
+  }, [messages, sessionId]);
 
   const resetSession = () => {
     localStorage.removeItem(SESSION_KEY);
+    if (sessionId) localStorage.removeItem(`${MSGS_KEY}:${sessionId}`);
     setSessionIds({});
     seenTimes.current.clear();
     chat.messages = [];
+    window.history.replaceState(null, "", window.location.pathname);
     setShowMenu(false);
   };
 
@@ -238,6 +265,14 @@ export function ChatApp() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, status]);
+
+  // seconds counter while the bot works (turns can take minutes)
+  useEffect(() => {
+    if (status !== "submitted" && status !== "streaming") { setElapsed(0); return; }
+    const t0 = Date.now();
+    const iv = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, [status]);
 
   const active = CONTACTS.find((c) => c.id === activeId) ?? CONTACTS[0];
   const isLive = active.id === "support";
@@ -417,7 +452,7 @@ export function ChatApp() {
             </span>
             <div>
               <div className="text-[16px] leading-5" style={{ color: C.textPrimary }}>{active.name}</div>
-              <div className="text-[13px]" style={{ color: C.textMuted }}>{busy && isLive ? "typing…" : isLive ? "online" : "last seen recently"}</div>
+              <div className="text-[13px]" style={{ color: C.textMuted }}>{busy && isLive ? `working… ${elapsed}s` : isLive ? "online" : "last seen recently"}</div>
             </div>
           </div>
           <div className="flex items-center gap-1" style={{ color: C.icon }}>
@@ -495,7 +530,7 @@ export function ChatApp() {
                 return (
                   <div key={m.id}>
                     {notice?.data?.text && (
-                      <div className="mx-auto mb-2 w-fit rounded-lg px-3 py-1.5 text-center text-[12.5px]" style={{ background: "#182229", color: C.textMuted }}>
+                      <div className="mx-auto mb-2 w-fit max-w-[80%] rounded-lg px-3 py-1.5 text-center text-[12.5px]" style={{ background: "#182229", color: C.textMuted }}>
                         {notice.data.text}
                       </div>
                     )}
@@ -524,6 +559,15 @@ export function ChatApp() {
         <button className="absolute bottom-[84px] right-5 grid h-10 w-10 place-items-center rounded-full shadow-lg" style={{ background: C.hoverBg, color: C.icon }}>
           <IconChevronDown size={22} />
         </button>
+
+        {/* error banner (network / backend failures) */}
+        {error && (
+          <div className="mx-3 mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-[13px]" style={{ background: "#3b1d1d", color: "#f4a9a9" }}>
+            <span>⚠</span>
+            <span className="flex-1">Message failed: {error.message}</span>
+            <button className="font-medium underline" onClick={() => error.message && chat.regenerate()}>Retry</button>
+          </div>
+        )}
 
         {/* composer */}
         <footer className="relative z-10 px-3 pb-3" style={{ background: C.chatBg }}>

@@ -45,21 +45,36 @@ export async function POST(req: Request) {
 
   const helixSessionId = body.sessionId || undefined;
 
-  const buildStream = (turn: Awaited<ReturnType<typeof sendTurn>>, recreated: boolean) =>
-    createUIMessageStream({
-      execute: async ({ writer }) => {
-        const id = "reply";
-        writer.write({ type: "start" });
-        if (recreated) {
-          writer.write({
-            type: "data-session",
-            data: { sessionId: turn.sessionId, recreated: true },
-          });
+  /**
+   * Helix turns can take minutes (the bot drives a real browser). We answer
+   * with the UI stream IMMEDIATELY and emit heartbeats while the blocking
+   * turn runs, so nothing in the chain idles out and the UI can show progress.
+   */
+  const stream = createUIMessageStream({
+    execute: async ({ writer }) => {
+      writer.write({ type: "start" });
+      let done = false;
+      const heartbeat = setInterval(() => {
+        if (!done) writer.write({ type: "data-heartbeat", data: { at: Date.now() } });
+      }, 5000);
+      try {
+        let turn: Awaited<ReturnType<typeof sendTurn>>;
+        let recreated = false;
+        try {
+          turn = await sendTurn({ sessionId: helixSessionId, message: text, attachments });
+        } catch (firstErr) {
+          // A stored session id can go stale (server restart, session deleted).
+          // Fall back to a brand-new session once before surfacing the error.
+          if (!helixSessionId) throw firstErr;
+          turn = await sendTurn({ sessionId: undefined, message: text, attachments });
+          recreated = true;
           writer.write({
             type: "data-notice",
             data: { text: "Previous session was unavailable — started a fresh one." },
           });
         }
+
+        const id = "reply";
         writer.write({ type: "text-start", id });
         // stream the reply in small chunks so long answers feel alive
         const chunks = turn.reply.match(/[\s\S]{1,90}/g) ?? [];
@@ -69,44 +84,20 @@ export async function POST(req: Request) {
         writer.write({ type: "text-end", id });
         // echo the session id so the client can pin this conversation to it
         writer.write({ type: "data-session", data: { sessionId: turn.sessionId } });
-        writer.write({ type: "finish" });
-      },
-      onError: (err) => String(err),
-    });
-
-  try {
-    const turn = await sendTurn({
-      sessionId: helixSessionId,
-      message: text,
-      attachments,
-    });
-
-    return createUIMessageStreamResponse({
-      stream: buildStream(turn, false),
-      headers: { "X-Helix-Session": turn.sessionId },
-    });
-  } catch (err) {
-    // A stored session id can go stale (server restart, session deleted).
-    // Fall back to a brand-new session once before surfacing the error.
-    if (helixSessionId) {
-      try {
-        const turn = await sendTurn({ sessionId: undefined, message: text, attachments });
-        return createUIMessageStreamResponse({
-          stream: buildStream(turn, true),
-          headers: { "X-Helix-Session": turn.sessionId },
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        writer.write({
+          type: "data-notice",
+          data: { text: `Helix backend error: ${message}` },
         });
-      } catch {
-        /* fall through to the original error */
-      }
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    const stream = createUIMessageStream({
-      execute: async ({ writer }) => {
-        writer.write({ type: "start" });
-        writer.write({ type: "error", errorText: `Helix backend error: ${message}` });
+      } finally {
+        done = true;
+        clearInterval(heartbeat);
         writer.write({ type: "finish" });
-      },
-    });
-    return createUIMessageStreamResponse({ stream });
-  }
+      }
+    },
+    onError: (err) => String(err),
+  });
+
+  return createUIMessageStreamResponse({ stream });
 }
