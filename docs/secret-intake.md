@@ -2,7 +2,7 @@
 
 For a bot that needs a username, password, API key, or OTP, create a Helix secret intake and give the customer its link. The customer fills in a Helix-hosted form. Values go to Helix directly, outside this demo's chat endpoint and outside MCP tool results. The bot can request an intake and check its status, but cannot retrieve submitted values through these tools.
 
-Enable Helix with `HELIX_SECRET_INTAKE_ENABLED=1`, a deployment-specific `HELIX_ENCRYPTION_KEY`, and an HTTPS `SERVER_URL` (loopback HTTP is allowed for local development). The older mock portal API remains a separate demo; see [portal-connection.md](portal-connection.md).
+Enable Helix with `HELIX_SECRET_INTAKE_ENABLED=1`, a deployment-specific `HELIX_ENCRYPTION_KEY`, and an HTTPS `SERVER_URL` (loopback HTTP is allowed for local development).
 
 ## Create an intake through the project API
 
@@ -28,7 +28,7 @@ Content-Type: application/json
 
 The `201` response contains `intake` metadata and `invite_url`, shaped like `https://<helix-host>/connect/intake#<token>`. Show the URL to the customer as a link or button. The token is a one-time bearer invitation in the URL fragment. The customer clicks **Continue** to exchange it for a short-lived HttpOnly cookie; the server renders the requested fields and receives the form POST. The invitation lasts 10 minutes and the form flow lasts 20 minutes. Submitted values are encrypted at rest, expire after one hour, and are cleared sooner when a trusted connector consumes or revokes them.
 
-`fields` has 1 to 8 entries. Names use lowercase letters, digits, and underscores; types are `text` or `password`. Labels, `required`, and supported autocomplete hints drive the trusted form. For a later OTP, create a second intake with a field such as `{"name":"otp","label":"Code","type":"password","required":true,"autocomplete":"one-time-code"}`.
+`fields` has 1 to 8 caller-defined entries; the form is not tied to a particular website or credential type. Names use lowercase letters, digits, and underscores; types are `text` or `password`. Labels, `required`, and supported autocomplete hints drive the trusted form. For a later OTP, create a second intake with a field such as `{"name":"otp","label":"Code","type":"password","required":true,"autocomplete":"one-time-code"}`.
 
 ## Status, direct submission, and revocation
 
