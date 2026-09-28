@@ -33,8 +33,6 @@ the bot's `~/work/incoming/` and are read by the bot.
 - **`bot/`** — the customer-support bot spec (`bot.yaml` + prompt) to apply in your org.
 - **`docs/api.md`** — the HTTP API integration guide (auth keys, chat, attachments, sessions,
   activity, error handling) — everything here was verified against a live API.
-- **`docs/portal-connection.md`** — the separate mock portal credential handoff API and
-  a safe path for adding a Connect portal action outside chat messages.
 - **`docs/secret-intake.md`** — the generic Helix Connect API and MCP tools for collecting
   requested secrets outside chat, with optional safe Artifact page copy.
 
